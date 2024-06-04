@@ -1,0 +1,84 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: This CloudFormation Stack creates a StackSet that deploys the
+  "EnableAWSConfig.yml" template to an Organization
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: General Parameters
+        Parameters:
+          - ConfigRegions
+          - TagName
+          - TagUnit
+          - TagEnvironment
+      - Label:
+          default: Aggregator Parameters
+        Parameters:
+          - ConfigAggRoleName
+          - ConfigAggName
+Parameters:
+  ConfigRegions:
+    Type: List<String>
+    Default: us-east-1
+    Description: Specifies list of Regions to be configured as Deployment Target.
+  TagName:
+    Type: String
+    Description: Specifies the prefix for the 'Name' tag for stack resources.
+  TagUnit:
+    Type: String
+    Description: Specifies the value for the 'Unit' tag for stack resources.
+  TagEnvironment:
+    Type: String
+    Description: Specifies the value for the 'Environment' tag for stack resources.
+  ConfigAggRoleName:
+    Type: String
+    Default: <AggregatorRoleName>
+    Description: Name for Config Aggregator IAM Role.
+  ConfigAggName:
+    Type: String
+    Default: <AggregatorName>
+    Description: Name for Config Aggregator.
+Resources:
+  ConfigAggregatorRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref ConfigAggRoleName
+      Description: Role for organizational AWS Config aggregator
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: config.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSConfigRoleForOrganizations
+      Tags:
+        - Key: Name
+          Value: !Sub
+            - "${tag}-${rolename}"
+            - tag: !Ref TagName
+              rolename: !Ref ConfigAggRoleName
+        - Key: Unit
+          Value: !Ref TagUnit
+        - Key: Environment
+          Value: !Ref TagEnvironment
+  ConfigAggregator:
+    Type: AWS::Config::ConfigurationAggregator
+    Properties:
+      ConfigurationAggregatorName: !Ref ConfigAggName
+      OrganizationAggregationSource:
+        AllAwsRegions: false
+        AwsRegions: !Ref ConfigRegions
+        RoleArn: !GetAtt ConfigAggregatorRole.Arn
+      Tags:
+        - Key: Name
+          Value: !Sub
+            - "${tag}-${agg}"
+            - tag: !Ref TagName
+              agg: !Ref ConfigAggName
+        - Key: Unit
+          Value: !Ref TagUnit
+        - Key: Environment
+          Value: !Ref TagEnvironment

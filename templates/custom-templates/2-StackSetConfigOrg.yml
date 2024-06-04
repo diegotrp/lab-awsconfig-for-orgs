@@ -1,0 +1,286 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description:
+  This CloudFormation Stack creates a StackSet that deploys the "EnableAWSConfigForOrganizations.yml" template to an Organization, in addition to a S3 Bucket for centralized logging.
+  The StackSet will deploy a Stack containing the Config componentes to each member account.
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: General Parameters
+        Parameters:
+          - ConfigRegions
+          - TagName
+          - TagUnit
+          - TagEnvironment
+      - Label:
+          default: Centralized Bucket Parameters
+        Parameters:
+          - OrganizationId
+          - CentralizedBucketName
+      - Label:
+          default: Cfn StackSet Resource Parameters
+        Parameters:
+          - StackSetOuId
+          - StackSetAutoDeployment
+          - StackSetManagedExecution
+          - StackSetCallAsAccount
+      - Label:
+          default: Config StackSet Template Parameters
+        Parameters:
+          - StSeParAllSupported
+          - StSeParIncludeGlobalResourceTypes
+          - StSeParResourceTypes
+          - StSeParServiceLinkedRoleRegion
+          - StSeParDeliveryChannelName
+          - StSeParS3KeyPrefix
+          - StSeParFrequency
+          - StSeParSNS
+          - StSeParTopicArn
+          - StSeParNotificationEmail
+Parameters:
+  ConfigRegions:
+    Type: List<String>
+    Default: us-east-1
+    Description: Specifies list of Regions to be configured as Deployment Target.
+  TagName:
+    Type: String
+    Description: Specifies the prefix for the 'Name' tag for stack resources.
+  TagUnit:
+    Type: String
+    Description: Specifies the value for the 'Unit' tag for stack resources.
+  TagEnvironment:
+    Type: String
+    Description: Specifies the value for the 'Environment' tag for stack resources.
+  OrganizationId:
+    Type: String
+    Default: <OrgId>
+    Description: Organization Id, for restricting access to centralized logging bucket.
+  CentralizedBucketName:
+    Type: String
+    Default: <CentrBucket>
+    Description: Name for Centralized Logging Bucket in Administration Account.
+  StackSetOuId:
+    Type: String
+    Default: <OuId>
+    Description: ID of Organization Unit to be configured as Deployment Target.
+  StackSetAutoDeployment:
+    Type: String
+    Default: true
+    Description: Specifies whether to enable Auto Deployment. This feature
+      automatically deploys StackSets to AWS Organizations accounts that are
+      added to a target.
+    AllowedValues:
+      - true
+      - false
+  StackSetManagedExecution:
+    Type: String
+    Default: false
+    Description: Describes whether StackSets performs non-conflicting operations
+      concurrently and queues conflicting operations.
+    AllowedValues:
+      - true
+      - false
+  StackSetCallAsAccount:
+    Type: String
+    Default: DELEGATED_ADMIN
+    Description:
+      Specifies whether you are acting as an account administrator in the
+      organization's management account or as a delegated administrator in a
+      member account.
+    AllowedValues:
+      - SELF
+      - DELEGATED_ADMIN
+  StSeParAllSupported:
+    Type: String
+    Default: true
+    Description:
+      StackSet Parameter "AllSupported" - Indicates whether to record all
+      supported resource types.
+    AllowedValues:
+      - true
+      - false
+  StSeParIncludeGlobalResourceTypes:
+    Type: String
+    Default: false
+    Description:
+      StackSet Parameter "IncludeGlobalResourceTypes" - Indicates whether
+      AWS Config records all supported global resource types.
+    AllowedValues:
+      - true
+      - false
+  StSeParResourceTypes:
+    Type: List<String>
+    Description:
+      StackSet Parameter "ResourceTypes" - A list of valid AWS resource
+      types to include in this recording group, such as AWS::EC2::Instance or
+      AWS::CloudTrail::Trail.
+    Default: <All>
+  StSeParServiceLinkedRoleRegion:
+    Type: String
+    Description:
+      StackSet Parameter "ResourceTypes" - A region such as us-east-1. If
+      specified, the Config service-linked role will only be created if the
+      stack is deployed to this region.
+    Default: <DeployToAnyRegion>
+  StSeParDeliveryChannelName:
+    Type: String
+    Default: <Generated>
+    Description:
+      StackSet Parameter "DeliveryChannelName" - The name of the delivery
+      channel.
+  StSeParS3KeyPrefix:
+    Type: String
+    Default: <Prefix>
+    Description:
+      StackSet Parameter "S3KeyPrefix" - Prefix for the specified Amazon
+      S3 bucket.
+  StSeParFrequency:
+    Type: String
+    Default: 24hours
+    Description: StackSet Parameter "Frequency" - The frequency with which AWS
+      Config delivers configuration snapshots.
+    AllowedValues:
+      - 1hour
+      - 3hours
+      - 6hours
+      - 12hours
+      - 24hours
+  StSeParSNS:
+    Type: String
+    Default: true
+    Description:
+      StackSet Parameter "TopicArn" - Describes wether AWS Config sends
+      SNS notifications.
+    AllowedValues:
+      - true
+      - false
+  StSeParTopicArn:
+    Type: String
+    Default: <New Topic>
+    Description:
+      StackSet Parameter "TopicArn" - The Amazon Resource Name (ARN) of
+      the Amazon Simple Notification Service (Amazon SNS) topic that AWS Config
+      delivers notifications to.
+  StSeParNotificationEmail:
+    Type: String
+    Default: <None>
+    Description: StackSet Parameter "NotificationEmail" - address for AWS Config
+      notifications (for new topics).
+Resources:
+  CentralizedBucket:
+    DeletionPolicy: Retain
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref CentralizedBucketName
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      Tags:
+        - Key: Name
+          Value: !Sub
+            - "${tag}-${bucket}"
+            - tag: !Ref TagName
+              bucket: !Ref CentralizedBucketName
+        - Key: Unit
+          Value: !Ref TagUnit
+        - Key: Environment
+          Value: !Ref TagEnvironment
+  CentralizedBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref CentralizedBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: AWSConfigBucketPermissionsCheck
+            Effect: Allow
+            Principal:
+              Service:
+                - config.amazonaws.com
+            Action: s3:GetBucketAcl
+            Resource:
+              - !Sub arn:${AWS::Partition}:s3:::${CentralizedBucket}
+            Condition:
+              StringEquals:
+                aws:SourceOrgID: !Ref OrganizationId
+          - Sid: AWSConfigBucketExistenceCheck
+            Effect: Allow
+            Principal:
+              Service:
+                - config.amazonaws.com
+            Action: s3:ListBucket
+            Resource:
+              - !Sub arn:${AWS::Partition}:s3:::${CentralizedBucket}
+            Condition:
+              StringEquals:
+                aws:SourceOrgID: !Ref OrganizationId
+          - Sid: AWSConfigBucketDelivery
+            Effect: Allow
+            Principal:
+              Service:
+                - config.amazonaws.com
+            Action: s3:PutObject
+            Resource:
+              - !Sub arn:${AWS::Partition}:s3:::${CentralizedBucket}/${StSeParS3KeyPrefix}/AWSLogs/*
+            Condition:
+              StringEquals:
+                aws:SourceOrgID: !Ref OrganizationId
+  ConfigStackSet:
+    Type: AWS::CloudFormation::StackSet
+    Properties:
+      StackSetName: ConfigStackSet
+      Description: StackSet for deploying AWS Config to an Organization Unit
+      PermissionModel: SERVICE_MANAGED
+      Capabilities:
+        - CAPABILITY_IAM
+      ManagedExecution:
+        Active: !Ref StackSetManagedExecution
+      OperationPreferences:
+        FailureToleranceCount: 0
+        MaxConcurrentCount: 1
+        RegionConcurrencyType: SEQUENTIAL
+      StackInstancesGroup:
+        - DeploymentTargets:
+            OrganizationalUnitIds:
+              - !Ref StackSetOuId
+          Regions: !Ref ConfigRegions
+      CallAs: !Ref StackSetCallAsAccount
+      AutoDeployment:
+        Enabled: !Ref StackSetAutoDeployment
+        RetainStacksOnAccountRemoval: true
+      Parameters:
+        - ParameterKey: AllSupported
+          ParameterValue: !Ref StSeParAllSupported
+        - ParameterKey: IncludeGlobalResourceTypes
+          ParameterValue: !Ref StSeParIncludeGlobalResourceTypes
+        - ParameterKey: ResourceTypes
+          ParameterValue: !Join
+            - ","
+            - !Ref StSeParResourceTypes
+        - ParameterKey: ServiceLinkedRoleRegion
+          ParameterValue: !Ref StSeParServiceLinkedRoleRegion
+        - ParameterKey: DeliveryChannelName
+          ParameterValue: !Ref StSeParDeliveryChannelName
+        - ParameterKey: S3BucketName
+          ParameterValue: !Ref CentralizedBucket
+        - ParameterKey: S3KeyPrefix
+          ParameterValue: !Ref StSeParS3KeyPrefix
+        - ParameterKey: Frequency
+          ParameterValue: !Ref StSeParFrequency
+        - ParameterKey: SNS
+          ParameterValue: !Ref StSeParSNS
+        - ParameterKey: TopicArn
+          ParameterValue: !Ref StSeParTopicArn
+        - ParameterKey: NotificationEmail
+          ParameterValue: !Ref StSeParNotificationEmail
+      TemplateURL: https://cloudformation-stackset-sample-templates-us-east-1.s3.us-east-1.amazonaws.com/EnableAWSConfigForOrganizations.yml
+      Tags:
+        - Key: Name
+          Value: !Sub
+            - "${tag}-StackSet"
+            - tag: !Ref TagName
+        - Key: Unit
+          Value: !Ref TagUnit
+        - Key: Environment
+          Value: !Ref TagEnvironment

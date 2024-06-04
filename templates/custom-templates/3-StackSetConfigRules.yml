@@ -1,0 +1,42 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: This CloudFormation Stack creates a StackSet that deploys a group of Organization Config Rules.
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Organization Config Rules Parameters
+        Parameters:
+          - OrgRulePrefixName
+Parameters:
+  OrgRulePrefixName:
+    Type: String
+    Default: <OrgRulePrefix>
+    Description: Prefix for the name of the Organization Config Rules.
+  OrgRuleExcludedAccounts:
+    Type: List<String>
+    Default: <OrgRuleExcludedAccounts>
+    Description: List of excluded accounts for the Organization Config Rules.
+Resources:
+  ConfigOrgRuleRequiredTags:
+    Type: AWS::Config::OrganizationConfigRule
+    Properties:
+      OrganizationConfigRuleName: !Sub
+        - "${prefix}-requiredtags"
+        - prefix: !Ref OrgRulePrefixName
+      ExcludedAccounts: !Ref OrgRuleExcludedAccounts
+      OrganizationManagedRuleMetadata:
+        RuleIdentifier: REQUIRED_TAGS
+        Description: Checks if your resources have the standard tags.
+        InputParameters: !Sub '{"tag1Key":"Name", "tag2Key":"Unit", "tag2Value":"Management,Security,Applications", "tag3Key":"Environment", "tag3Value": "Prod,Dev,Test,Sandbox"}'
+  ConfigOrgRuleAccessKeysRotated:
+    Type: AWS::Config::OrganizationConfigRule
+    Properties:
+      OrganizationConfigRuleName: !Sub
+        - "${prefix}-accesskeysrotation"
+        - prefix: !Ref OrgRulePrefixName
+      ExcludedAccounts: !Ref OrgRuleExcludedAccounts
+      OrganizationManagedRuleMetadata:
+        RuleIdentifier: ACCESS_KEYS_ROTATED
+        Description: Checks if active IAM access keys are rotated within 90 days.
+        InputParameters: !Sub '{"maxAccessKeyAge": "90"}'
+        MaximumExecutionFrequency: TwentyFour_Hours
