@@ -11,6 +11,8 @@ Metadata:
           - IncludeGlobalResourceTypes
           - ResourceTypes
           - ServiceLinkedRoleRegion
+          - RecordingFrequency
+
       - Label:
           default: Delivery Channel Configuration
         Parameters:
@@ -41,6 +43,8 @@ Metadata:
         default: Prefix for the specified Amazon S3 bucket
       Frequency:
         default: Snapshot delivery frequency
+      RecordingFrequency:
+        default: Configuration recorder recording frequency
       SNS:
         default: SNS notifications
       TopicArn:
@@ -102,6 +106,13 @@ Parameters:
       - 6hours
       - 12hours
       - 24hours
+
+  RecordingFrequency:
+    Type: String
+    Description: The frequency with which AWS Config Recorder records configuration changes.
+    AllowedValues:
+      - CONTINUOUS
+      - DAILY
 
   SNS:
     Type: String
@@ -276,6 +287,8 @@ Resources:
       RoleARN:
         Fn::Sub:
           "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/aws-service-role/config.amazonaws.com/AWSServiceRoleForConfig"
+      RecordingMode:
+        RecordingFrequency: !Ref RecordingFrequency
 
   ConfigDeliveryChannel:
     Type: AWS::Config::DeliveryChannel

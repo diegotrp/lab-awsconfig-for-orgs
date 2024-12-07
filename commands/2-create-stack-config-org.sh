@@ -18,6 +18,7 @@ aws cloudformation create-stack --stack-name Config-StackSetConfigRecorder \
       ParameterKey=StSeParDeliveryChannelName,ParameterValue="<Generated>" \
       ParameterKey=StSeParS3KeyPrefix,ParameterValue=o-xxxxxxx \
       ParameterKey=StSeParFrequency,ParameterValue=24hours \
+      ParameterKey=StSeParRecordingFrequency,ParameterValue=DAILY \
       ParameterKey=StSeParSNS,ParameterValue=false \
       ParameterKey=StSeParTopicArn,ParameterValue="<New Topic>" \
       ParameterKey=StSeParNotificationEmail,ParameterValue="<None>"
