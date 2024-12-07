@@ -34,6 +34,7 @@ Metadata:
           - StSeParDeliveryChannelName
           - StSeParS3KeyPrefix
           - StSeParFrequency
+          - StSeParRecordingFrequency
           - StSeParSNS
           - StSeParTopicArn
           - StSeParNotificationEmail
@@ -145,6 +146,12 @@ Parameters:
       - 6hours
       - 12hours
       - 24hours
+  StSeParRecordingFrequency:
+    Type: String
+    Description: StackSet Parameter "RecordingFrequency" - The frequency with which AWS Config Recorder records configuration changes.
+    AllowedValues:
+      - CONTINUOUS
+      - DAILY
   StSeParSNS:
     Type: String
     Default: true
@@ -268,6 +275,8 @@ Resources:
           ParameterValue: !Ref StSeParS3KeyPrefix
         - ParameterKey: Frequency
           ParameterValue: !Ref StSeParFrequency
+        - ParameterKey: RecordingFrequency
+          ParameterValue: !Ref StSeParRecordingFrequency
         - ParameterKey: SNS
           ParameterValue: !Ref StSeParSNS
         - ParameterKey: TopicArn
